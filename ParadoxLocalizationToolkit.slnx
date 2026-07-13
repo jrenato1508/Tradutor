@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/App.Console/App.Console.csproj" Id="d01fbc62-a5f4-4e41-82fb-d472c7e9ddda" />
+  <Project Path="src/App.Core/App.Core.csproj" Id="8d0b04a6-8716-4b80-be36-0b6a2f6aa03e" />
+</Solution>
