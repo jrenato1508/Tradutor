@@ -1,5 +1,9 @@
 ﻿using GameLocalizationToolkit.Core.Interfaces;
-using GameLocalizationToolkit.Core.Services;
+using GameLocalizationToolkit.Infrastructure.FileSystem;
+using GameLocalizationToolkit.Infrastructure.Parsers;
+
+
+
 
 
 
@@ -24,7 +28,10 @@ if (string.IsNullOrWhiteSpace(directoryPath))
 
 directoryPath = directoryPath.Trim().Trim('"');
 
-ILocalizationFileReader reader = new LocalizationFileReader();
+
+ILocalizationParser parser = new ParadoxLocalizationParser();
+
+ILocalizationFileReader reader = new LocalizationFileReader(parser);
 
 try
 {

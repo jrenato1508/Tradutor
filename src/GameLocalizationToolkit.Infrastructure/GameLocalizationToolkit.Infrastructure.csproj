@@ -10,8 +10,4 @@
     <ProjectReference Include="..\App.Core\GameLocalizationToolkit.Core.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Parsers\" />
-  </ItemGroup>
-
 </Project>

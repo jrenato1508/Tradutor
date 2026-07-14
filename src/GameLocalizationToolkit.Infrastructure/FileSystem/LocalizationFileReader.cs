@@ -5,10 +5,18 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace GameLocalizationToolkit.Core.Services
+namespace GameLocalizationToolkit.Infrastructure.FileSystem
 {
     public sealed partial class LocalizationFileReader : ILocalizationFileReader
     {
+        private readonly ILocalizationParser _parser;
+
+        public LocalizationFileReader(ILocalizationParser parser)
+        {
+            _parser = parser;
+        }
+
+
         public LocalizationScanResult ReadDirectory(string directoryPath)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
@@ -21,10 +29,7 @@ namespace GameLocalizationToolkit.Core.Services
 
             var result = new LocalizationScanResult();
 
-            var files = Directory.EnumerateFiles(
-                directoryPath,
-                "*.yml",
-                SearchOption.AllDirectories);
+            var files = Directory.EnumerateFiles(directoryPath,"*.yml",SearchOption.AllDirectories);
 
             foreach (var filePath in files)
             {
@@ -56,83 +61,9 @@ namespace GameLocalizationToolkit.Core.Services
 
             var lines = File.ReadAllLines(filePath, Encoding.UTF8);
 
-            var language = IdentifyLanguage(lines);
-
-            var localizationFile = new LocalizationFile
-            {
-                FilePath = filePath,
-                Language = language
-            };
-
-            for (var index = 0; index < lines.Length; index++)
-            {
-                var line = lines[index];
-
-                if (ShouldIgnoreLine(line))
-                {
-                    continue;
-                }
-
-                var entry = ParseLine(
-                    line,
-                    filePath,
-                    index + 1);
-
-                if (entry is not null)
-                {
-                    localizationFile.Entries.Add(entry);
-                }
-            }
-
-            return localizationFile;
+            return _parser.Parse(filePath, lines);                      
         }
 
-        private static string IdentifyLanguage(IEnumerable<string> lines)
-        {
-            foreach (var line in lines)
-            {
-                var trimmedLine = line.Trim()
-                    .TrimStart('\uFEFF');
-
-                if (trimmedLine.StartsWith("l_", StringComparison.OrdinalIgnoreCase) &&
-                    trimmedLine.EndsWith(':'))
-                {
-                    return trimmedLine.TrimEnd(':');
-                }
-            }
-
-            return "unknown";
-        }
-
-        private static bool ShouldIgnoreLine(string line)
-        {
-            var trimmedLine = line.Trim();
-
-            return string.IsNullOrWhiteSpace(trimmedLine) ||
-                   trimmedLine.StartsWith('#') ||
-                   trimmedLine.StartsWith("l_");
-        }
-
-        private static LocalizationEntry? ParseLine( string line, string filePath, int lineNumber)
-        {
-            var match = LocalizationLineRegex().Match(line);
-
-            if (!match.Success)
-            {
-                return null;
-            }
-
-            return new LocalizationEntry
-            {
-                Key = match.Groups["key"].Value,
-                Version = match.Groups["version"].Value,
-                Value = match.Groups["value"].Value,
-                SourceFile = filePath,
-                LineNumber = lineNumber
-            };
-        }
         
-        [GeneratedRegex("""^\s*(?<key>[^\s:#]+):(?<version>\d*)\s+"(?<value>.*)"\s*$""", RegexOptions.Compiled)]
-        private static partial Regex LocalizationLineRegex();
     }
 }
