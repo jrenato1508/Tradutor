@@ -1,11 +1,11 @@
-﻿using App.Core.Interfaces;
-using App.Core.Models;
+﻿using GameLocalizationToolkit.Core.Interfaces;
+using GameLocalizationToolkit.Core.Models;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace App.Core.Services
+namespace GameLocalizationToolkit.Core.Services
 {
     public sealed partial class LocalizationFileReader : ILocalizationFileReader
     {

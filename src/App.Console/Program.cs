@@ -1,5 +1,5 @@
-﻿using App.Core.Interfaces;
-using App.Core.Services;
+﻿using GameLocalizationToolkit.Core.Interfaces;
+using GameLocalizationToolkit.Core.Services;
 
 
 

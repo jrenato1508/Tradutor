@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace App.Core.Models
+namespace GameLocalizationToolkit.Core.Models
 {
     public sealed class LocalizationScanResult
     {
