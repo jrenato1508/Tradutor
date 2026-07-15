@@ -1,6 +1,6 @@
 <Solution>
-  <Project Path="src/App.Console/GameLocalizationToolkit.Console.csproj" Id="d01fbc62-a5f4-4e41-82fb-d472c7e9ddda" />
-  <Project Path="src/App.Core/GameLocalizationToolkit.Core.csproj" Id="8d0b04a6-8716-4b80-be36-0b6a2f6aa03e" />
+  <Project Path="src/GameLocalizationToolkit.Console/GameLocalizationToolkit.Console.csproj" />
+  <Project Path="src/GameLocalizationToolkit.Core/GameLocalizationToolkit.Core.csproj" />
   <Project Path="src/GameLocalizationToolkit.Infrastructure/GameLocalizationToolkit.Infrastructure.csproj" Id="0a129f72-06fe-4d9c-9a6b-c08ef76c1fb2" />
   <Project Path="src/GameLocalizationToolkit.Tests/GameLocalizationToolkit.Tests.csproj" Id="b70693d7-0f4b-4b93-a9cb-94546d5b5d9d">
     <Build Solution="Debug|*" Project="false" />
