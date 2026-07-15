@@ -1,7 +1,5 @@
 ﻿using GameLocalizationToolkit.Core.Models;
-using System;
-using System.Collections.Generic;
-using System.Text;
+
 
 namespace GameLocalizationToolkit.Core.Services
 {
@@ -15,7 +13,10 @@ namespace GameLocalizationToolkit.Core.Services
 
             FindRemovedEntries(source, target, result);
 
-            FindUnchangedEntries(source, target, result);
+            FindMatchedEntries(source, target, result);
+
+            //FindModifiedEntries(source, target, result);
+
 
             return result;
         }
@@ -69,20 +70,20 @@ namespace GameLocalizationToolkit.Core.Services
             }
         }
 
-
-
-        #region FindUnchangedEntries
+        #region FindMatchedEntries
         /*
-         Identifica as chaves presentes tanto no arquivo de origem (Source = Arquivo do jogo (versão nova))
-         quanto no arquivo de destino (Target = Arquivo do mod (tradução)).
+         Identifica as chaves presentes tanto no arquivo de origem
+         quanto no arquivo de destino.
 
-         Essas entradas representam traduções que continuam válidas após a
-         atualização do jogo e, portanto, não necessitam de nenhuma alteração.
+         A comparação considera somente a existência da chave.
+         Os valores não são comparados porque o jogo e o mod
+         normalmente utilizam idiomas diferentes.
 
-         Todas as entradas encontradas são adicionadas à coleção UnchangedEntries.
+         Todas as correspondências encontradas são adicionadas
+         à coleção MatchedEntries.
          */
         #endregion
-        private void FindUnchangedEntries(LocalizationFile source,LocalizationFile target, LocalizationComparisonResult result)
+        private void FindMatchedEntries(LocalizationFile source,LocalizationFile target, LocalizationComparisonResult result)
         {
             var targetEntries = target.Entries.ToDictionary(entry => entry.Key);
 
@@ -90,7 +91,41 @@ namespace GameLocalizationToolkit.Core.Services
             {
                 if (targetEntries.ContainsKey(sourceEntry.Key))
                 {
-                    result.UnchangedEntries.Add(sourceEntry);
+                    result.MatchedEntries.Add(sourceEntry);
+                }
+            }
+        }
+
+        #region FindModifiedEntries
+        /*
+         Identifica as entradas que existem tanto no arquivo de origem
+         quanto no arquivo de destino, mas possuem diferenças no valor
+         ou na versão.
+
+         As diferenças encontradas são representadas por objetos
+         LocalizationEntryDifference e adicionadas à coleção ModifiedEntries.
+         */
+        #endregion
+        private void FindModifiedEntries(LocalizationFile source,LocalizationFile target, LocalizationComparisonResult result)
+        {
+            var targetEntries = target.Entries.ToDictionary(entry => entry.Key);
+
+            foreach (var sourceEntry in source.Entries)
+            {
+                if (!targetEntries.TryGetValue(sourceEntry.Key, out var targetEntry))
+                {
+                    continue;
+                }
+
+                var difference = new LocalizationEntryDifference
+                {
+                    Source = sourceEntry,
+                    Target = targetEntry
+                };
+
+                if (difference.HasChanges)
+                {
+                    result.ModifiedEntries.Add(difference);
                 }
             }
         }

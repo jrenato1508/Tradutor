@@ -6,9 +6,9 @@ namespace GameLocalizationToolkit.Core.Models
 {
     public sealed class LocalizationScanResult
     {
-        public List<LocalizationFile> Files { get; init; } = [];
+        public List<LocalizationFile> Files { get; } = [];
 
-        public List<string> Errors { get; init; } = [];
+        public List<string> Errors { get; } = [];
 
         public int TotalFiles => Files.Count;
 

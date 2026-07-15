@@ -1,13 +1,10 @@
 ﻿using GameLocalizationToolkit.Core.Interfaces;
 using GameLocalizationToolkit.Core.Models;
-using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace GameLocalizationToolkit.Infrastructure.FileSystem
 {
-    public sealed partial class LocalizationFileReader : ILocalizationFileReader
+    public sealed class LocalizationFileReader : ILocalizationFileReader
     {
         private readonly ILocalizationParser _parser;
 
