@@ -9,17 +9,21 @@ namespace GameLocalizationToolkit.Infrastructure.Parsers
 {
     public sealed partial class ParadoxLocalizationParser : ILocalizationParser
     {
-        public LocalizationFile Parse(string filePath, IEnumerable<string> lines)
+        public LocalizationFile Parse(string filePath,string relativePath,string[] lines)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(relativePath);
             ArgumentNullException.ThrowIfNull(lines);
 
             var fileLines = lines.ToArray();
 
+            var language = IdentifyLanguage(fileLines);
+
             var localizationFile = new LocalizationFile
             {
                 FilePath = filePath,
-                Language = IdentifyLanguage(fileLines)
+                RelativePath = relativePath,
+                Language = language
             };
 
             for (var index = 0; index < fileLines.Length; index++)

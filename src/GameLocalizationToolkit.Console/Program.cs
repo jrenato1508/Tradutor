@@ -7,7 +7,6 @@ using GameLocalizationToolkit.Infrastructure.Parsers;
 /*
  Configura o título e exibe o cabeçalho inicial da aplicação.
  */
-
 Console.Title = "Game Localization Toolkit";
 
 Console.WriteLine("====================================");
@@ -16,8 +15,6 @@ Console.WriteLine("====================================");
 Console.WriteLine();
 #endregion
 
-
-
 #region Leitura dos caminhos
 /*
  Solicita ao usuário os caminhos da pasta original do jogo
@@ -25,7 +22,6 @@ Console.WriteLine();
 
  Os caminhos são validados e normalizados antes do processamento.
  */
-
 Console.Write("Informe o caminho da pasta original do jogo: ");
 var sourceDirectoryPath = Console.ReadLine();
 
@@ -44,8 +40,6 @@ sourceDirectoryPath = sourceDirectoryPath.Trim().Trim('"');
 targetDirectoryPath = targetDirectoryPath.Trim().Trim('"');
 #endregion
 
-
-
 #region Criação dos serviços
 /*
  Cria os componentes responsáveis por:
@@ -54,19 +48,27 @@ targetDirectoryPath = targetDirectoryPath.Trim().Trim('"');
  - ler arquivos e diretórios;
  - comparar os conteúdos das duas pastas;
  - realizar o merge entre arquivos;
- - coordenar o merge completo dos diretórios.
+ - coordenar o merge completo dos diretórios;
+ - gravar o resultado em disco.
  */
+ILocalizationParser parser =
+    new ParadoxLocalizationParser();
+
+ILocalizationFileReader reader =
+    new LocalizationFileReader(parser);
+
+ILocalizationDirectoryComparer comparer =
+    new LocalizationDirectoryComparer();
+
+ILocalizationMerger merger =
+    new LocalizationMerger();
+
+ILocalizationDirectoryMerger directoryMerger =
+    new LocalizationDirectoryMerger(merger);
+
+ILocalizationWriter writer =
+    new LocalizationWriter();
 #endregion
-
-ILocalizationParser parser =  new ParadoxLocalizationParser();
-
-ILocalizationFileReader reader = new LocalizationFileReader(parser);
-
-ILocalizationDirectoryComparer comparer = new LocalizationDirectoryComparer();
-
-ILocalizationMerger merger = new LocalizationMerger();
-
-ILocalizationDirectoryMerger directoryMerger = new LocalizationDirectoryMerger(merger);
 
 try
 {
@@ -75,7 +77,6 @@ try
      Lê recursivamente todos os arquivos .yml encontrados nas pastas
      informadas e transforma seus conteúdos em objetos de localização.
      */
-
     Console.WriteLine();
     Console.WriteLine("Analisando a pasta original do jogo...");
 
@@ -88,8 +89,6 @@ try
         reader.ReadDirectory(targetDirectoryPath);
     #endregion
 
-
-
     #region Comparação dos diretórios
     /*
      Compara todas as chaves encontradas nas duas pastas para identificar:
@@ -98,7 +97,6 @@ try
      - chaves existentes apenas no mod;
      - chaves correspondentes presentes nos dois lados.
      */
-
     Console.WriteLine();
     Console.WriteLine("Comparando as localizações...");
 
@@ -106,13 +104,10 @@ try
         comparer.Compare(sourceResult, targetResult);
     #endregion
 
-
-
     #region Resultado da leitura
     /*
      Exibe as informações gerais das duas pastas analisadas.
      */
-
     Console.WriteLine();
     Console.WriteLine("====================================");
     Console.WriteLine("Resultado da comparação");
@@ -132,14 +127,11 @@ try
     Console.WriteLine($"Erros encontrados: {targetResult.Errors.Count:N0}");
     #endregion
 
-
-
     #region Resumo da comparação
     /*
      Exibe a quantidade de chaves adicionadas, removidas
      e correspondentes encontradas durante a comparação.
      */
-
     Console.WriteLine();
     Console.WriteLine("Resumo:");
 
@@ -156,14 +148,11 @@ try
         $"{comparisonResult.MatchedEntries.Count:N0}");
     #endregion
 
-
-
     #region Exibição das novas chaves
     /*
      Exibe uma amostra das primeiras novas chaves encontradas,
      limitando a saída para evitar sobrecarregar o Console.
      */
-
     if (comparisonResult.AddedEntries.Count > 0)
     {
         Console.WriteLine();
@@ -185,17 +174,14 @@ try
     }
     #endregion
 
-
-
     #region Merge completo
     /*
      Realiza o merge completo entre os arquivos da pasta original
      e os arquivos traduzidos do mod.
 
-     O resultado ainda é mantido somente em memória e não altera
-     nenhum arquivo existente no disco.
+     O resultado é inicialmente gerado em memória e depois pode ser
+     gravado em uma pasta de saída informada pelo usuário.
      */
-
     Console.WriteLine();
     Console.WriteLine("Gerando merge completo em memória...");
 
@@ -218,15 +204,53 @@ try
         $"Erros acumulados: {mergedResult.Errors.Count:N0}");
     #endregion
 
+    #region Escrita dos arquivos
+    /*
+     Solicita uma pasta de saída e grava nela o resultado do merge.
 
+     Os arquivos originais do jogo e do mod não são alterados.
+     */
+    Console.WriteLine();
+    Console.Write("Informe a pasta onde deseja salvar o resultado: ");
+
+    var outputDirectoryPath =
+        Console.ReadLine()?.Trim().Trim('"');
+
+    if (string.IsNullOrWhiteSpace(outputDirectoryPath))
+    {
+        Console.WriteLine();
+        Console.WriteLine("Nenhuma pasta de saída foi informada.");
+        return;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("Gravando arquivos...");
+
+    writer.WriteDirectory(
+        mergedResult,
+        outputDirectoryPath);
+
+    Console.WriteLine();
+    Console.WriteLine("Arquivos gravados com sucesso.");
+
+    Console.WriteLine(
+        $"Pasta de saída: {outputDirectoryPath}");
+
+    Console.WriteLine(
+        $"Arquivos gravados: {mergedResult.TotalFiles:N0}");
+
+    Console.WriteLine(
+        $"Chaves gravadas: {mergedResult.TotalEntries:N0}");
+    #endregion
 
     #region Exibição dos erros
     /*
      Reúne e exibe os erros encontrados durante a leitura
      das duas pastas, limitando a saída aos primeiros dez registros.
      */
-
-    var errors = sourceResult.Errors.Concat(targetResult.Errors).ToList();
+    var errors = sourceResult.Errors
+        .Concat(targetResult.Errors)
+        .ToList();
 
     if (errors.Count > 0)
     {
@@ -245,15 +269,12 @@ try
         }
     }
     #endregion
-
-
 }
 #region Tratamento de erros
 /*
  Trata os principais erros que podem ocorrer durante a leitura,
- comparação e merge dos arquivos de localização.
+ comparação, merge e gravação dos arquivos de localização.
  */
-
 catch (DirectoryNotFoundException exception)
 {
     Console.WriteLine();
@@ -273,7 +294,12 @@ catch (UnauthorizedAccessException)
 catch (ArgumentException exception)
 {
     Console.WriteLine();
-    Console.WriteLine($"Caminho inválido: {exception.Message}");
+    Console.WriteLine($"Dados inválidos: {exception.Message}");
+}
+catch (IOException exception)
+{
+    Console.WriteLine();
+    Console.WriteLine($"Erro ao acessar ou gravar arquivos: {exception.Message}");
 }
 catch (Exception exception)
 {
@@ -282,15 +308,12 @@ catch (Exception exception)
 }
 #endregion
 
-
 #region Encerramento
 /*
  Mantém o Console aberto para que o usuário possa visualizar
  os resultados antes de encerrar a aplicação.
  */
-
 Console.WriteLine();
 Console.WriteLine("Pressione qualquer tecla para encerrar...");
 Console.ReadKey();
 #endregion
-

@@ -49,7 +49,10 @@ public sealed class LocalizationDirectoryMerger : ILocalizationDirectoryMerger
             else
             {
                 // O arquivo ainda não existe no mod.
-                result.Files.Add(sourceFile);
+                var targetLanguage = target.Files.FirstOrDefault()?.Language ?? sourceFile.Language;
+                var convertedFile = ConvertToTargetLanguage( sourceFile,targetLanguage);
+
+                result.Files.Add(convertedFile);
             }
 
             processedFiles.Add(logicalFileName);
@@ -85,5 +88,42 @@ public sealed class LocalizationDirectoryMerger : ILocalizationDirectoryMerger
         }
 
         return fileName;
+    }
+
+    private static LocalizationFile ConvertToTargetLanguage(
+    LocalizationFile sourceFile,
+    string targetLanguage)
+    {
+        var sourceLanguageName =
+            sourceFile.Language.TrimStart('l', '_');
+
+        var targetLanguageName =
+            targetLanguage.TrimStart('l', '_');
+
+        var convertedRelativePath =
+            sourceFile.RelativePath.Replace(
+                $"_l_{sourceLanguageName}",
+                $"_l_{targetLanguageName}",
+                StringComparison.OrdinalIgnoreCase);
+
+        var convertedFilePath =
+            sourceFile.FilePath.Replace(
+                $"_l_{sourceLanguageName}",
+                $"_l_{targetLanguageName}",
+                StringComparison.OrdinalIgnoreCase);
+
+        var convertedFile = new LocalizationFile
+        {
+            FilePath = convertedFilePath,
+            RelativePath = convertedRelativePath,
+            Language = targetLanguage
+        };
+
+        foreach (var entry in sourceFile.Entries)
+        {
+            convertedFile.Entries.Add(entry);
+        }
+
+        return convertedFile;
     }
 }

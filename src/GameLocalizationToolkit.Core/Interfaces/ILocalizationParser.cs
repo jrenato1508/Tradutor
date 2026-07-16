@@ -7,6 +7,6 @@ namespace GameLocalizationToolkit.Core.Interfaces
 {
     public interface ILocalizationParser
     {
-        LocalizationFile Parse(string filePath, IEnumerable<string> lines);
+        LocalizationFile Parse(string filePath,string relativePath,string[] lines);
     }
 }

@@ -8,6 +8,8 @@ namespace GameLocalizationToolkit.Core.Models
     {
         public required string FilePath { get; init; }
 
+        public required string RelativePath { get; init; }
+
         public required string Language { get; init; }
 
         public List<LocalizationEntry> Entries { get; init; } = [];

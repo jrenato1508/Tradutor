@@ -13,6 +13,7 @@ public sealed class LocalizationMerger : ILocalizationMerger
         var mergedFile = new LocalizationFile
         {
             FilePath = target.FilePath,
+            RelativePath = target.RelativePath,
             Language = target.Language
         };
 
