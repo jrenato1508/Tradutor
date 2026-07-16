@@ -8,10 +8,10 @@ using GameLocalizationToolkit.Infrastructure.Parsers;
 
 
 
-Console.Title = "Paradox Localization Toolkit";
+Console.Title = "Game Localization Toolkit";
 
 Console.WriteLine("====================================");
-Console.WriteLine(" Paradox Localization Toolkit");
+Console.WriteLine("Game Localization Toolkit");
 Console.WriteLine("====================================");
 Console.WriteLine();
 

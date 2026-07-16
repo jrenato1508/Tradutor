@@ -70,14 +70,14 @@ namespace GameLocalizationToolkit.Tests
             var result = comparer.Compare(source, target);
 
             // Assert
-            Assert.Equal(2, result.UnchangedEntries.Count);
+            Assert.Equal(2, result.MatchedEntries.Count);
 
             Assert.Contains(
-                result.UnchangedEntries,
+                result.MatchedEntries,
                 entry => entry.Key == "king");
 
             Assert.Contains(
-                result.UnchangedEntries,
+                result.MatchedEntries,
                 entry => entry.Key == "queen");
         }
 
