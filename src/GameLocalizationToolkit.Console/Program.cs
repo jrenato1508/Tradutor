@@ -3,12 +3,28 @@ using GameLocalizationToolkit.Core.Services;
 using GameLocalizationToolkit.Infrastructure.FileSystem;
 using GameLocalizationToolkit.Infrastructure.Parsers;
 
+#region Configuração inicial
+/*
+ Configura o título e exibe o cabeçalho inicial da aplicação.
+ */
+
 Console.Title = "Game Localization Toolkit";
 
 Console.WriteLine("====================================");
 Console.WriteLine("Game Localization Toolkit");
 Console.WriteLine("====================================");
 Console.WriteLine();
+#endregion
+
+
+
+#region Leitura dos caminhos
+/*
+ Solicita ao usuário os caminhos da pasta original do jogo
+ e da pasta que contém os arquivos traduzidos do mod.
+
+ Os caminhos são validados e normalizados antes do processamento.
+ */
 
 Console.Write("Informe o caminho da pasta original do jogo: ");
 var sourceDirectoryPath = Console.ReadLine();
@@ -26,17 +42,40 @@ if (string.IsNullOrWhiteSpace(sourceDirectoryPath) ||
 
 sourceDirectoryPath = sourceDirectoryPath.Trim().Trim('"');
 targetDirectoryPath = targetDirectoryPath.Trim().Trim('"');
+#endregion
 
-ILocalizationParser parser = new ParadoxLocalizationParser();
 
-ILocalizationFileReader reader =
-    new LocalizationFileReader(parser);
 
-ILocalizationDirectoryComparer comparer =
-    new LocalizationDirectoryComparer();
+#region Criação dos serviços
+/*
+ Cria os componentes responsáveis por:
+
+ - interpretar os arquivos de localização;
+ - ler arquivos e diretórios;
+ - comparar os conteúdos das duas pastas;
+ - realizar o merge entre arquivos;
+ - coordenar o merge completo dos diretórios.
+ */
+#endregion
+
+ILocalizationParser parser =  new ParadoxLocalizationParser();
+
+ILocalizationFileReader reader = new LocalizationFileReader(parser);
+
+ILocalizationDirectoryComparer comparer = new LocalizationDirectoryComparer();
+
+ILocalizationMerger merger = new LocalizationMerger();
+
+ILocalizationDirectoryMerger directoryMerger = new LocalizationDirectoryMerger(merger);
 
 try
 {
+    #region Leitura dos diretórios
+    /*
+     Lê recursivamente todos os arquivos .yml encontrados nas pastas
+     informadas e transforma seus conteúdos em objetos de localização.
+     */
+
     Console.WriteLine();
     Console.WriteLine("Analisando a pasta original do jogo...");
 
@@ -47,12 +86,32 @@ try
 
     var targetResult =
         reader.ReadDirectory(targetDirectoryPath);
+    #endregion
+
+
+
+    #region Comparação dos diretórios
+    /*
+     Compara todas as chaves encontradas nas duas pastas para identificar:
+
+     - novas chaves existentes apenas no jogo;
+     - chaves existentes apenas no mod;
+     - chaves correspondentes presentes nos dois lados.
+     */
 
     Console.WriteLine();
     Console.WriteLine("Comparando as localizações...");
 
     var comparisonResult =
         comparer.Compare(sourceResult, targetResult);
+    #endregion
+
+
+
+    #region Resultado da leitura
+    /*
+     Exibe as informações gerais das duas pastas analisadas.
+     */
 
     Console.WriteLine();
     Console.WriteLine("====================================");
@@ -71,6 +130,15 @@ try
     Console.WriteLine($"Arquivos encontrados: {targetResult.TotalFiles:N0}");
     Console.WriteLine($"Chaves encontradas: {targetResult.TotalEntries:N0}");
     Console.WriteLine($"Erros encontrados: {targetResult.Errors.Count:N0}");
+    #endregion
+
+
+
+    #region Resumo da comparação
+    /*
+     Exibe a quantidade de chaves adicionadas, removidas
+     e correspondentes encontradas durante a comparação.
+     */
 
     Console.WriteLine();
     Console.WriteLine("Resumo:");
@@ -86,6 +154,15 @@ try
     Console.WriteLine(
         $"Chaves já existentes no mod: " +
         $"{comparisonResult.MatchedEntries.Count:N0}");
+    #endregion
+
+
+
+    #region Exibição das novas chaves
+    /*
+     Exibe uma amostra das primeiras novas chaves encontradas,
+     limitando a saída para evitar sobrecarregar o Console.
+     */
 
     if (comparisonResult.AddedEntries.Count > 0)
     {
@@ -106,10 +183,50 @@ try
                 "chaves não exibidas.");
         }
     }
+    #endregion
 
-    var errors = sourceResult.Errors
-        .Concat(targetResult.Errors)
-        .ToList();
+
+
+    #region Merge completo
+    /*
+     Realiza o merge completo entre os arquivos da pasta original
+     e os arquivos traduzidos do mod.
+
+     O resultado ainda é mantido somente em memória e não altera
+     nenhum arquivo existente no disco.
+     */
+
+    Console.WriteLine();
+    Console.WriteLine("Gerando merge completo em memória...");
+
+    var mergedResult =
+        directoryMerger.Merge(sourceResult, targetResult);
+
+    Console.WriteLine();
+    Console.WriteLine("====================================");
+    Console.WriteLine("Resultado do merge completo");
+    Console.WriteLine("====================================");
+    Console.WriteLine();
+
+    Console.WriteLine(
+        $"Arquivos gerados: {mergedResult.TotalFiles:N0}");
+
+    Console.WriteLine(
+        $"Chaves geradas: {mergedResult.TotalEntries:N0}");
+
+    Console.WriteLine(
+        $"Erros acumulados: {mergedResult.Errors.Count:N0}");
+    #endregion
+
+
+
+    #region Exibição dos erros
+    /*
+     Reúne e exibe os erros encontrados durante a leitura
+     das duas pastas, limitando a saída aos primeiros dez registros.
+     */
+
+    var errors = sourceResult.Errors.Concat(targetResult.Errors).ToList();
 
     if (errors.Count > 0)
     {
@@ -127,17 +244,31 @@ try
                 $"- Outros {errors.Count - 10:N0} erros não exibidos.");
         }
     }
+    #endregion
+
+
 }
+#region Tratamento de erros
+/*
+ Trata os principais erros que podem ocorrer durante a leitura,
+ comparação e merge dos arquivos de localização.
+ */
+
 catch (DirectoryNotFoundException exception)
 {
     Console.WriteLine();
     Console.WriteLine($"Pasta não encontrada: {exception.Message}");
 }
+catch (FileNotFoundException exception)
+{
+    Console.WriteLine();
+    Console.WriteLine($"Arquivo não encontrado: {exception.FileName}");
+}
 catch (UnauthorizedAccessException)
 {
     Console.WriteLine();
     Console.WriteLine(
-        "O programa não possui permissão para acessar uma das pastas.");
+        "O programa não possui permissão para acessar uma das pastas ou arquivos.");
 }
 catch (ArgumentException exception)
 {
@@ -149,7 +280,17 @@ catch (Exception exception)
     Console.WriteLine();
     Console.WriteLine($"Ocorreu um erro inesperado: {exception.Message}");
 }
+#endregion
+
+
+#region Encerramento
+/*
+ Mantém o Console aberto para que o usuário possa visualizar
+ os resultados antes de encerrar a aplicação.
+ */
 
 Console.WriteLine();
 Console.WriteLine("Pressione qualquer tecla para encerrar...");
 Console.ReadKey();
+#endregion
+
