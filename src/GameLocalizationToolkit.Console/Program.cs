@@ -1,4 +1,6 @@
-﻿using GameLocalizationToolkit.Core.Interfaces;
+﻿using GameLocalizationToolkit.Core.Enums;
+using GameLocalizationToolkit.Core.Interfaces;
+using GameLocalizationToolkit.Core.Models;
 using GameLocalizationToolkit.Core.Services;
 using GameLocalizationToolkit.Infrastructure.FileSystem;
 using GameLocalizationToolkit.Infrastructure.Parsers;
@@ -7,38 +9,98 @@ using GameLocalizationToolkit.Infrastructure.Parsers;
 /*
  Configura o título e exibe o cabeçalho inicial da aplicação.
  */
+
 Console.Title = "Game Localization Toolkit";
 
 Console.WriteLine("====================================");
 Console.WriteLine("Game Localization Toolkit");
 Console.WriteLine("====================================");
 Console.WriteLine();
+
 #endregion
+
+
+#region Solicitação do modo de tradução
+/*
+ Define se o usuário deseja:
+
+ 1 - Atualizar uma tradução já existente.
+ 2 - Criar uma nova tradução a partir dos arquivos originais do jogo.
+ */
+
+Console.WriteLine("Como deseja utilizar o programa?");
+Console.WriteLine();
+Console.WriteLine("1 - Atualizar uma tradução existente");
+Console.WriteLine("2 - Criar uma nova tradução");
+Console.WriteLine();
+
+Console.Write("Opção: ");
+var option = Console.ReadLine();
+
+TranslationMode translationMode;
+
+switch (option)
+{
+    case "1":
+        translationMode = TranslationMode.UpdateExistingTranslation;
+        break;
+
+    case "2":
+        translationMode = TranslationMode.CreateNewTranslation;
+        break;
+
+    default:
+        Console.WriteLine();
+        Console.WriteLine("Opção inválida.");
+        return;
+}
+
+Console.WriteLine();
+
+#endregion
+
 
 #region Leitura dos caminhos
 /*
- Solicita ao usuário os caminhos da pasta original do jogo
- e da pasta que contém os arquivos traduzidos do mod.
+ Solicita ao usuário a pasta original do jogo.
 
- Os caminhos são validados e normalizados antes do processamento.
+ Caso o modo selecionado seja de atualização de uma tradução existente,
+ também solicita a pasta do mod utilizado como base.
  */
+
 Console.Write("Informe o caminho da pasta original do jogo: ");
 var sourceDirectoryPath = Console.ReadLine();
 
-Console.Write("Informe o caminho da pasta do mod traduzido: ");
-var targetDirectoryPath = Console.ReadLine();
-
-if (string.IsNullOrWhiteSpace(sourceDirectoryPath) ||
-    string.IsNullOrWhiteSpace(targetDirectoryPath))
+if (string.IsNullOrWhiteSpace(sourceDirectoryPath))
 {
     Console.WriteLine();
-    Console.WriteLine("As duas pastas precisam ser informadas.");
+    Console.WriteLine("A pasta original do jogo precisa ser informada.");
     return;
 }
 
-sourceDirectoryPath = sourceDirectoryPath.Trim().Trim('"');
-targetDirectoryPath = targetDirectoryPath.Trim().Trim('"');
+sourceDirectoryPath =
+    sourceDirectoryPath.Trim().Trim('"');
+
+string? targetDirectoryPath = null;
+
+if (translationMode == TranslationMode.UpdateExistingTranslation)
+{
+    Console.Write("Informe o caminho da pasta do mod traduzido: ");
+    targetDirectoryPath = Console.ReadLine();
+
+    if (string.IsNullOrWhiteSpace(targetDirectoryPath))
+    {
+        Console.WriteLine();
+        Console.WriteLine("A pasta do mod traduzido precisa ser informada.");
+        return;
+    }
+
+    targetDirectoryPath =
+        targetDirectoryPath.Trim().Trim('"');
+}
+
 #endregion
+
 
 #region Criação dos serviços
 /*
@@ -49,8 +111,10 @@ targetDirectoryPath = targetDirectoryPath.Trim().Trim('"');
  - comparar os conteúdos das duas pastas;
  - realizar o merge entre arquivos;
  - coordenar o merge completo dos diretórios;
- - gravar o resultado em disco.
+ - gravar o resultado em disco;
+ - determinar quais entradas precisam ser traduzidas.
  */
+
 ILocalizationParser parser =
     new ParadoxLocalizationParser();
 
@@ -68,189 +132,346 @@ ILocalizationDirectoryMerger directoryMerger =
 
 ILocalizationWriter writer =
     new LocalizationWriter();
+
+ILocalizationTranslationPlanner translationPlanner =
+    new LocalizationTranslationPlanner();
+
+ILocalizationTokenProtector tokenProtector =
+    new LocalizationTokenProtector();
+
 #endregion
+
 
 try
 {
-    #region Leitura dos diretórios
+    #region Leitura da pasta original
     /*
-     Lê recursivamente todos os arquivos .yml encontrados nas pastas
-     informadas e transforma seus conteúdos em objetos de localização.
+     Lê recursivamente todos os arquivos .yml encontrados
+     na pasta original do jogo.
      */
+
     Console.WriteLine();
     Console.WriteLine("Analisando a pasta original do jogo...");
 
     var sourceResult =
         reader.ReadDirectory(sourceDirectoryPath);
 
-    Console.WriteLine("Analisando a pasta do mod traduzido...");
-
-    var targetResult =
-        reader.ReadDirectory(targetDirectoryPath);
-    #endregion
-
-    #region Comparação dos diretórios
-    /*
-     Compara todas as chaves encontradas nas duas pastas para identificar:
-
-     - novas chaves existentes apenas no jogo;
-     - chaves existentes apenas no mod;
-     - chaves correspondentes presentes nos dois lados.
-     */
     Console.WriteLine();
-    Console.WriteLine("Comparando as localizações...");
-
-    var comparisonResult =
-        comparer.Compare(sourceResult, targetResult);
-    #endregion
-
-    #region Resultado da leitura
-    /*
-     Exibe as informações gerais das duas pastas analisadas.
-     */
-    Console.WriteLine();
-    Console.WriteLine("====================================");
-    Console.WriteLine("Resultado da comparação");
-    Console.WriteLine("====================================");
-    Console.WriteLine();
-
-    Console.WriteLine($"Pasta original: {sourceDirectoryPath}");
     Console.WriteLine($"Arquivos encontrados: {sourceResult.TotalFiles:N0}");
     Console.WriteLine($"Chaves encontradas: {sourceResult.TotalEntries:N0}");
     Console.WriteLine($"Erros encontrados: {sourceResult.Errors.Count:N0}");
 
+    #endregion
+
+
+    #region Leitura e comparação com mod existente
+    /*
+     Esta etapa é executada apenas quando o usuário possui
+     uma tradução existente para utilizar como base.
+
+     Nesse cenário, as duas pastas são comparadas para identificar:
+
+     - novas chaves;
+     - chaves removidas;
+     - chaves já existentes no mod.
+     */
+
+    LocalizationScanResult? targetResult = null;
+    LocalizationDirectoryComparisonResult? comparisonResult = null;
+
+    if (translationMode == TranslationMode.UpdateExistingTranslation)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Analisando a pasta do mod traduzido...");
+
+        targetResult =
+            reader.ReadDirectory(targetDirectoryPath!);
+
+        Console.WriteLine();
+        Console.WriteLine("Comparando as localizações...");
+
+        comparisonResult =
+            comparer.Compare(sourceResult, targetResult);
+
+        Console.WriteLine();
+        Console.WriteLine("====================================");
+        Console.WriteLine("Resultado da comparação");
+        Console.WriteLine("====================================");
+        Console.WriteLine();
+
+        Console.WriteLine($"Pasta original: {sourceDirectoryPath}");
+        Console.WriteLine($"Arquivos encontrados: {sourceResult.TotalFiles:N0}");
+        Console.WriteLine($"Chaves encontradas: {sourceResult.TotalEntries:N0}");
+        Console.WriteLine($"Erros encontrados: {sourceResult.Errors.Count:N0}");
+
+        Console.WriteLine();
+
+        Console.WriteLine($"Pasta do mod: {targetDirectoryPath}");
+        Console.WriteLine($"Arquivos encontrados: {targetResult.TotalFiles:N0}");
+        Console.WriteLine($"Chaves encontradas: {targetResult.TotalEntries:N0}");
+        Console.WriteLine($"Erros encontrados: {targetResult.Errors.Count:N0}");
+    }
+
+    #endregion
+
+
+    #region Planejamento da tradução
+    /*
+     Define quais entradas precisam ser traduzidas.
+
+     Atualização de mod:
+     - somente as novas chaves encontradas durante a comparação.
+
+     Nova tradução:
+     - todas as chaves existentes na pasta original do jogo.
+     */
+
+    var entriesToTranslate =
+        translationPlanner
+            .GetEntriesToTranslate(
+                translationMode,
+                sourceResult,
+                comparisonResult)
+            .ToList();
+
+
+    #region Teste de proteção dos tokens
+
+    if (entriesToTranslate.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine("====================================");
+        Console.WriteLine("Validação da proteção dos tokens");
+        Console.WriteLine("====================================");
+
+        var tokenValidationErrors = new List<LocalizationEntry>();
+
+        foreach (var entry in entriesToTranslate)
+        {
+            var protectedText =
+                tokenProtector.Protect(entry.Value);
+
+            var restoredText =
+                tokenProtector.Restore(protectedText);
+
+            if (!string.Equals(
+                entry.Value,
+                restoredText,
+                StringComparison.Ordinal))
+            {
+                tokenValidationErrors.Add(entry);
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            $"Entradas verificadas: {entriesToTranslate.Count:N0}");
+
+        Console.WriteLine(
+            $"Falhas na restauração: {tokenValidationErrors.Count:N0}");
+
+        if (tokenValidationErrors.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Primeiras entradas com problema:");
+
+            foreach (var entry in tokenValidationErrors.Take(20))
+            {
+                Console.WriteLine(
+                    $"- {entry.Key}: \"{entry.Value}\"");
+            }
+        }
+    }
+
+    #endregion
+
+
+
+
+    Console.WriteLine();
+    Console.WriteLine("====================================");
+    Console.WriteLine("Plano de tradução");
+    Console.WriteLine("====================================");
     Console.WriteLine();
 
-    Console.WriteLine($"Pasta do mod: {targetDirectoryPath}");
-    Console.WriteLine($"Arquivos encontrados: {targetResult.TotalFiles:N0}");
-    Console.WriteLine($"Chaves encontradas: {targetResult.TotalEntries:N0}");
-    Console.WriteLine($"Erros encontrados: {targetResult.Errors.Count:N0}");
+    var translationModeDescription =
+        translationMode == TranslationMode.UpdateExistingTranslation
+            ? "Atualizar tradução existente"
+            : "Criar nova tradução";
+
+    Console.WriteLine(
+        $"Modo selecionado: {translationModeDescription}");
+
+    Console.WriteLine(
+        $"Entradas que precisam ser traduzidas: " +
+        $"{entriesToTranslate.Count:N0}");
+
     #endregion
+
 
     #region Resumo da comparação
     /*
-     Exibe a quantidade de chaves adicionadas, removidas
-     e correspondentes encontradas durante a comparação.
+     Exibe informações específicas da comparação somente quando
+     existe um mod utilizado como base.
      */
-    Console.WriteLine();
-    Console.WriteLine("Resumo:");
 
-    Console.WriteLine(
-        $"Novas chaves para traduzir: " +
-        $"{comparisonResult.AddedEntries.Count:N0}");
-
-    Console.WriteLine(
-        $"Chaves removidas do jogo: " +
-        $"{comparisonResult.RemovedEntries.Count:N0}");
-
-    Console.WriteLine(
-        $"Chaves já existentes no mod: " +
-        $"{comparisonResult.MatchedEntries.Count:N0}");
-    #endregion
-
-    #region Exibição das novas chaves
-    /*
-     Exibe uma amostra das primeiras novas chaves encontradas,
-     limitando a saída para evitar sobrecarregar o Console.
-     */
-    if (comparisonResult.AddedEntries.Count > 0)
+    if (comparisonResult is not null)
     {
         Console.WriteLine();
-        Console.WriteLine("Primeiras novas chaves encontradas:");
+        Console.WriteLine("Resumo:");
 
-        foreach (var entry in comparisonResult.AddedEntries.Take(20))
+        Console.WriteLine(
+            $"Novas chaves para traduzir: " +
+            $"{comparisonResult.AddedEntries.Count:N0}");
+
+        Console.WriteLine(
+            $"Chaves removidas do jogo: " +
+            $"{comparisonResult.RemovedEntries.Count:N0}");
+
+        Console.WriteLine(
+            $"Chaves já existentes no mod: " +
+            $"{comparisonResult.MatchedEntries.Count:N0}");
+    }
+
+    #endregion
+
+
+    #region Exibição das entradas para tradução
+    /*
+     Exibe uma pequena amostra das entradas que fazem parte
+     da fila de tradução.
+     */
+
+    if (entriesToTranslate.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Primeiras entradas que precisam ser traduzidas:");
+
+        foreach (var entry in entriesToTranslate.Take(20))
         {
             Console.WriteLine(
                 $"- {entry.Key}: \"{entry.Value}\"");
         }
 
-        if (comparisonResult.AddedEntries.Count > 20)
+        if (entriesToTranslate.Count > 20)
         {
             Console.WriteLine(
                 $"- Outras " +
-                $"{comparisonResult.AddedEntries.Count - 20:N0} " +
-                "chaves não exibidas.");
+                $"{entriesToTranslate.Count - 20:N0} " +
+                "entradas não exibidas.");
         }
     }
+
     #endregion
 
-    #region Merge completo
+
+    #region Atualização de tradução existente
     /*
-     Realiza o merge completo entre os arquivos da pasta original
-     e os arquivos traduzidos do mod.
+     O merge e a geração dos arquivos atuais somente fazem sentido
+     quando existe um mod utilizado como base.
 
-     O resultado é inicialmente gerado em memória e depois pode ser
-     gravado em uma pasta de saída informada pelo usuário.
+     O modo de criação de uma tradução do zero ainda será implementado
+     junto ao pipeline de tradução automática.
      */
-    Console.WriteLine();
-    Console.WriteLine("Gerando merge completo em memória...");
 
-    var mergedResult =
-        directoryMerger.Merge(sourceResult, targetResult);
+    if (translationMode == TranslationMode.UpdateExistingTranslation)
+    {
+        if (targetResult is null)
+        {
+            throw new InvalidOperationException(
+                "O resultado da leitura do mod não está disponível.");
+        }
 
-    Console.WriteLine();
-    Console.WriteLine("====================================");
-    Console.WriteLine("Resultado do merge completo");
-    Console.WriteLine("====================================");
-    Console.WriteLine();
+        #region Merge completo
 
-    Console.WriteLine(
-        $"Arquivos gerados: {mergedResult.TotalFiles:N0}");
+        Console.WriteLine();
+        Console.WriteLine("Gerando merge completo em memória...");
 
-    Console.WriteLine(
-        $"Chaves geradas: {mergedResult.TotalEntries:N0}");
+        var mergedResult =
+            directoryMerger.Merge(
+                sourceResult,
+                targetResult);
 
-    Console.WriteLine(
-        $"Erros acumulados: {mergedResult.Errors.Count:N0}");
-    #endregion
+        Console.WriteLine();
+        Console.WriteLine("====================================");
+        Console.WriteLine("Resultado do merge completo");
+        Console.WriteLine("====================================");
+        Console.WriteLine();
 
-    #region Escrita dos arquivos
-    /*
-     Solicita uma pasta de saída e grava nela o resultado do merge.
+        Console.WriteLine(
+            $"Arquivos gerados: {mergedResult.TotalFiles:N0}");
 
-     Os arquivos originais do jogo e do mod não são alterados.
-     */
-    Console.WriteLine();
-    Console.Write("Informe a pasta onde deseja salvar o resultado: ");
+        Console.WriteLine(
+            $"Chaves geradas: {mergedResult.TotalEntries:N0}");
 
-    var outputDirectoryPath =
-        Console.ReadLine()?.Trim().Trim('"');
+        Console.WriteLine(
+            $"Erros acumulados: {mergedResult.Errors.Count:N0}");
 
-    if (string.IsNullOrWhiteSpace(outputDirectoryPath))
+        #endregion
+
+
+        #region Escrita dos arquivos
+
+        Console.WriteLine();
+        Console.Write("Informe a pasta onde deseja salvar o resultado: ");
+
+        var outputDirectoryPath =
+            Console.ReadLine()?.Trim().Trim('"');
+
+        if (string.IsNullOrWhiteSpace(outputDirectoryPath))
+        {
+            Console.WriteLine();
+            Console.WriteLine("Nenhuma pasta de saída foi informada.");
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Gravando arquivos...");
+
+        writer.WriteDirectory(
+            mergedResult,
+            outputDirectoryPath);
+
+        Console.WriteLine();
+        Console.WriteLine("Arquivos gravados com sucesso.");
+
+        Console.WriteLine(
+            $"Pasta de saída: {outputDirectoryPath}");
+
+        Console.WriteLine(
+            $"Arquivos gravados: {mergedResult.TotalFiles:N0}");
+
+        Console.WriteLine(
+            $"Chaves gravadas: {mergedResult.TotalEntries:N0}");
+
+        #endregion
+    }
+    else
     {
         Console.WriteLine();
-        Console.WriteLine("Nenhuma pasta de saída foi informada.");
-        return;
+        Console.WriteLine(
+            "A geração de uma tradução completa será realizada " +
+            "na próxima etapa do pipeline de tradução.");
     }
 
-    Console.WriteLine();
-    Console.WriteLine("Gravando arquivos...");
-
-    writer.WriteDirectory(
-        mergedResult,
-        outputDirectoryPath);
-
-    Console.WriteLine();
-    Console.WriteLine("Arquivos gravados com sucesso.");
-
-    Console.WriteLine(
-        $"Pasta de saída: {outputDirectoryPath}");
-
-    Console.WriteLine(
-        $"Arquivos gravados: {mergedResult.TotalFiles:N0}");
-
-    Console.WriteLine(
-        $"Chaves gravadas: {mergedResult.TotalEntries:N0}");
     #endregion
+
 
     #region Exibição dos erros
     /*
-     Reúne e exibe os erros encontrados durante a leitura
-     das duas pastas, limitando a saída aos primeiros dez registros.
+     Exibe os erros encontrados durante a leitura.
+
+     Caso exista um mod base, os erros das duas leituras são reunidos.
      */
-    var errors = sourceResult.Errors
-        .Concat(targetResult.Errors)
-        .ToList();
+
+    var errors = new List<string>();
+
+    errors.AddRange(sourceResult.Errors);
+
+    if (targetResult is not null)
+    {
+        errors.AddRange(targetResult.Errors);
+    }
 
     if (errors.Count > 0)
     {
@@ -268,22 +489,27 @@ try
                 $"- Outros {errors.Count - 10:N0} erros não exibidos.");
         }
     }
+
     #endregion
 }
+
 #region Tratamento de erros
 /*
  Trata os principais erros que podem ocorrer durante a leitura,
- comparação, merge e gravação dos arquivos de localização.
+ comparação, planejamento, merge e gravação dos arquivos.
  */
+
 catch (DirectoryNotFoundException exception)
 {
     Console.WriteLine();
-    Console.WriteLine($"Pasta não encontrada: {exception.Message}");
+    Console.WriteLine(
+        $"Pasta não encontrada: {exception.Message}");
 }
 catch (FileNotFoundException exception)
 {
     Console.WriteLine();
-    Console.WriteLine($"Arquivo não encontrado: {exception.FileName}");
+    Console.WriteLine(
+        $"Arquivo não encontrado: {exception.FileName}");
 }
 catch (UnauthorizedAccessException)
 {
@@ -294,26 +520,33 @@ catch (UnauthorizedAccessException)
 catch (ArgumentException exception)
 {
     Console.WriteLine();
-    Console.WriteLine($"Dados inválidos: {exception.Message}");
+    Console.WriteLine(
+        $"Dados inválidos: {exception.Message}");
 }
 catch (IOException exception)
 {
     Console.WriteLine();
-    Console.WriteLine($"Erro ao acessar ou gravar arquivos: {exception.Message}");
+    Console.WriteLine(
+        $"Erro ao acessar ou gravar arquivos: {exception.Message}");
 }
 catch (Exception exception)
 {
     Console.WriteLine();
-    Console.WriteLine($"Ocorreu um erro inesperado: {exception.Message}");
+    Console.WriteLine(
+        $"Ocorreu um erro inesperado: {exception.Message}");
 }
+
 #endregion
+
 
 #region Encerramento
 /*
  Mantém o Console aberto para que o usuário possa visualizar
  os resultados antes de encerrar a aplicação.
  */
+
 Console.WriteLine();
 Console.WriteLine("Pressione qualquer tecla para encerrar...");
 Console.ReadKey();
+
 #endregion
