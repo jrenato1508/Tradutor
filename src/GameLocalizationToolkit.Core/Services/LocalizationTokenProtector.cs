@@ -9,7 +9,7 @@ namespace GameLocalizationToolkit.Core.Services
 {
     public class LocalizationTokenProtector : ILocalizationTokenProtector
     {
-        private static readonly Regex TokenRegex = new(@"(\[[^\]]+\]|\$[^$]+\$|#[A-Za-z0-9_]+|#!)", RegexOptions.Compiled);
+        private static readonly Regex TokenRegex = new(@"(\[[^\]]+\]|\$[^$]+\$|@[A-Za-z0-9_]+!|#[A-Za-z0-9_]+|#!)", RegexOptions.Compiled);
 
         public ProtectedLocalizationText Protect(string text)
         {

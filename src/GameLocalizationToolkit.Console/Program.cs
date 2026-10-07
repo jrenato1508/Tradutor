@@ -4,6 +4,7 @@ using GameLocalizationToolkit.Core.Models;
 using GameLocalizationToolkit.Core.Services;
 using GameLocalizationToolkit.Infrastructure.FileSystem;
 using GameLocalizationToolkit.Infrastructure.Parsers;
+using GameLocalizationToolkit.Infrastructure.Translation;
 
 #region Configuração inicial
 /*
@@ -139,6 +140,9 @@ ILocalizationTranslationPlanner translationPlanner =
 ILocalizationTokenProtector tokenProtector =
     new LocalizationTokenProtector();
 
+ITranslationExporter translationExporter =
+    new TranslationExporter(tokenProtector);
+
 #endregion
 
 
@@ -235,7 +239,7 @@ try
             .ToList();
 
 
-    #region Teste de proteção dos tokens
+    #region Validação da proteção dos tokens;
 
     if (entriesToTranslate.Count > 0)
     {
@@ -364,6 +368,57 @@ try
 
     #endregion
 
+    #region Exportação para tradução
+
+    if (entriesToTranslate.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Deseja exportar as entradas para tradução? (S/N)");
+        Console.Write("Opção: ");
+
+        var exportOption = Console.ReadLine()?.Trim();
+
+        if (string.Equals(exportOption, "S", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine();
+            Console.Write("Informe a pasta onde deseja salvar os arquivos de tradução: ");
+
+            var translationOutputPath = Console.ReadLine()?.Trim().Trim('"');
+
+            if (string.IsNullOrWhiteSpace(translationOutputPath))
+            {
+                Console.WriteLine();
+                Console.WriteLine("Nenhuma pasta de saída foi informada.");
+            }
+            else
+            {
+                const int entriesPerFile = 500;
+
+                var exportResult = translationExporter.Export(entriesToTranslate, translationOutputPath, entriesPerFile);
+
+                Console.WriteLine();
+                Console.WriteLine("Arquivos para tradução gerados com sucesso.");
+
+                Console.WriteLine($"Entradas pendentes: {entriesToTranslate.Count:N0}");
+
+                Console.WriteLine($"Entradas exportadas: {exportResult.ExportedEntries:N0}");
+
+                Console.WriteLine($"Entradas sem conteúdo traduzível: " + $"{entriesToTranslate.Count - exportResult.ExportedEntries:N0}");
+
+                Console.WriteLine($"Arquivos gerados: {exportResult.GeneratedFiles:N0}");
+
+                Console.WriteLine($"Pasta de saída: {translationOutputPath}");
+
+                Console.WriteLine();
+                Console.WriteLine("As entradas foram exportadas para tradução.");
+                Console.WriteLine("Após traduzir os arquivos, execute novamente o programa para importar as traduções.");
+
+                return;
+            }
+        }
+    }
+
+    #endregion
 
     #region Atualização de tradução existente
     /*
